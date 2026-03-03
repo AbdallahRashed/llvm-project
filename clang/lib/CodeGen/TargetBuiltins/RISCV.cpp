@@ -1128,14 +1128,34 @@ Value *CodeGenFunction::EmitRISCVBuiltinExpr(unsigned BuiltinID,
   llvm::SmallVector<llvm::Type *, 2> IntrinsicTypes;
   switch (BuiltinID) {
   default: llvm_unreachable("unexpected builtin ID");
+
+  // Zbc or Zbkc - expand clmulh(a, b) to trunc(clmul(zext(a), zext(b)) >> N)
+  case RISCV::BI__builtin_riscv_clmulh_32:
+  case RISCV::BI__builtin_riscv_clmulh_64:
+  // Zbc - expand clmulr(a, b) to trunc(clmul(zext(a), zext(b)) >> (N - 1))
+  case RISCV::BI__builtin_riscv_clmulr_32:
+  case RISCV::BI__builtin_riscv_clmulr_64: {
+    llvm::Type *OrigTy = Ops[0]->getType();
+    unsigned BW = OrigTy->getScalarSizeInBits();
+    llvm::Type *ExtTy = llvm::IntegerType::get(getLLVMContext(), BW * 2);
+
+    Value *AExt = Builder.CreateZExt(Ops[0], ExtTy);
+    Value *BExt = Builder.CreateZExt(Ops[1], ExtTy);
+
+    llvm::Function *F = CGM.getIntrinsic(Intrinsic::clmul, {ExtTy});
+    Value *ClMul = Builder.CreateCall(F, {AExt, BExt});
+
+    bool IsClmulr = BuiltinID == RISCV::BI__builtin_riscv_clmulr_32 ||
+                    BuiltinID == RISCV::BI__builtin_riscv_clmulr_64;
+    unsigned ShAmt = IsClmulr ? (BW - 1) : BW;
+    Value *Shifted = Builder.CreateLShr(ClMul, ShAmt);
+    return Builder.CreateTrunc(Shifted, OrigTy);
+  }
+
   case RISCV::BI__builtin_riscv_orc_b_32:
   case RISCV::BI__builtin_riscv_orc_b_64:
   case RISCV::BI__builtin_riscv_clmul_32:
   case RISCV::BI__builtin_riscv_clmul_64:
-  case RISCV::BI__builtin_riscv_clmulh_32:
-  case RISCV::BI__builtin_riscv_clmulh_64:
-  case RISCV::BI__builtin_riscv_clmulr_32:
-  case RISCV::BI__builtin_riscv_clmulr_64:
   case RISCV::BI__builtin_riscv_xperm4_32:
   case RISCV::BI__builtin_riscv_xperm4_64:
   case RISCV::BI__builtin_riscv_xperm8_32:
@@ -1156,14 +1176,6 @@ Value *CodeGenFunction::EmitRISCVBuiltinExpr(unsigned BuiltinID,
     case RISCV::BI__builtin_riscv_clmul_32:
     case RISCV::BI__builtin_riscv_clmul_64:
       ID = Intrinsic::clmul;
-      break;
-    case RISCV::BI__builtin_riscv_clmulh_32:
-    case RISCV::BI__builtin_riscv_clmulh_64:
-      ID = Intrinsic::riscv_clmulh;
-      break;
-    case RISCV::BI__builtin_riscv_clmulr_32:
-    case RISCV::BI__builtin_riscv_clmulr_64:
-      ID = Intrinsic::riscv_clmulr;
       break;
 
     // Zbkx

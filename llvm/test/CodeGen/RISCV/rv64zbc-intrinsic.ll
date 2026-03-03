@@ -2,6 +2,7 @@
 ; RUN: llc -mtriple=riscv64 -mattr=+zbc -verify-machineinstrs < %s \
 ; RUN:   | FileCheck %s -check-prefix=RV64ZBC
 
+; NOTE: This intrinsic has been removed so this tests autoupgrade to llvm.clmul.
 define i64 @clmul64r(i64 %a, i64 %b) nounwind {
 ; RV64ZBC-LABEL: clmul64r:
 ; RV64ZBC:       # %bb.0:
@@ -11,6 +12,7 @@ define i64 @clmul64r(i64 %a, i64 %b) nounwind {
   ret i64 %tmp
 }
 
+; NOTE: This intrinsic has been removed so this tests autoupgrade to llvm.clmul.
 define signext i32 @clmul32r(i32 signext %a, i32 signext %b) nounwind {
 ; RV64ZBC-LABEL: clmul32r:
 ; RV64ZBC:       # %bb.0:
@@ -23,6 +25,7 @@ define signext i32 @clmul32r(i32 signext %a, i32 signext %b) nounwind {
   ret i32 %tmp
 }
 
+; NOTE: This intrinsic has been removed so this tests autoupgrade to llvm.clmul.
 ; FIXME: We could avoid the slli instructions by using clmul+srli+sext.w since
 ; the inputs are zero extended.
 define signext i32 @clmul32r_zext(i32 zeroext %a, i32 zeroext %b) nounwind {

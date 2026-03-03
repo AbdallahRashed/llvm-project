@@ -1767,6 +1767,13 @@ static bool upgradeIntrinsicFunction1(Function *F, Function *&NewFn,
         return true;
       }
 
+      // Replace llvm.riscv.clmulh/clmulr with zext+llvm.clmul+lshr+trunc.
+      if (Name == "clmulh.i32" || Name == "clmulh.i64" ||
+          Name == "clmulr.i32" || Name == "clmulr.i64") {
+        NewFn = nullptr;
+        return true;
+      }
+
       break; // No other 'riscv.*' intrinsics
     }
   } break;
@@ -4942,6 +4949,7 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
     bool IsAArch64 = Name.consume_front("aarch64.");
     bool IsARM = Name.consume_front("arm.");
     bool IsAMDGCN = Name.consume_front("amdgcn.");
+    bool IsRISCV = Name.consume_front("riscv.");
     bool IsDbg = Name.consume_front("dbg.");
     bool IsOldSplice =
         (Name.consume_front("experimental.vector.splice") ||
@@ -4961,6 +4969,27 @@ void llvm::UpgradeIntrinsicCall(CallBase *CI, Function *NewFn) {
       Rep = upgradeARMIntrinsicCall(Name, CI, F, Builder);
     } else if (IsAMDGCN) {
       Rep = upgradeAMDGCNIntrinsicCall(Name, CI, F, Builder);
+    } else if (IsRISCV) {
+      // Expand llvm.riscv.clmulh/clmulr to zext+llvm.clmul+lshr+trunc.
+      if (Name.starts_with("clmulh.") || Name.starts_with("clmulr.")) {
+        Value *A = CI->getArgOperand(0);
+        Value *B = CI->getArgOperand(1);
+        Type *OrigTy = A->getType();
+        unsigned BW = OrigTy->getScalarSizeInBits();
+        Type *ExtTy = IntegerType::get(C, BW * 2);
+
+        Value *AExt = Builder.CreateZExt(A, ExtTy);
+        Value *BExt = Builder.CreateZExt(B, ExtTy);
+
+        Function *ClmulFn = Intrinsic::getOrInsertDeclaration(
+            F->getParent(), Intrinsic::clmul, {ExtTy});
+        Value *ClMul = Builder.CreateCall(ClmulFn, {AExt, BExt});
+
+        unsigned ShAmt = Name.starts_with("clmulr.") ? (BW - 1) : BW;
+        Value *Shifted =
+            Builder.CreateLShr(ClMul, ConstantInt::get(ExtTy, ShAmt));
+        Rep = Builder.CreateTrunc(Shifted, OrigTy);
+      }
     } else if (IsDbg) {
       upgradeDbgIntrinsicToDbgRecord(Name, CI);
     } else if (IsOldSplice) {

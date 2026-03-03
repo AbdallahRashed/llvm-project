@@ -14,6 +14,7 @@ define i32 @clmul32(i32 %a, i32 %b) nounwind {
   ret i32 %tmp
 }
 
+; NOTE: This intrinsic has been removed so this tests autoupgrade to llvm.clmul.
 define i32 @clmul32h(i32 %a, i32 %b) nounwind {
 ; RV32ZBC-ZBKC-LABEL: clmul32h:
 ; RV32ZBC-ZBKC:       # %bb.0:

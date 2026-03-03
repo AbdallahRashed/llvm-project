@@ -14,6 +14,7 @@ define i64 @clmul64(i64 %a, i64 %b) nounwind {
   ret i64 %tmp
 }
 
+; NOTE: This intrinsic has been removed so this tests autoupgrade to llvm.clmul.
 define i64 @clmul64h(i64 %a, i64 %b) nounwind {
 ; RV64ZBC-ZBKC-LABEL: clmul64h:
 ; RV64ZBC-ZBKC:       # %bb.0:
@@ -34,6 +35,7 @@ define signext i32 @clmul32(i32 signext %a, i32 signext %b) nounwind {
   ret i32 %tmp
 }
 
+; NOTE: This intrinsic has been removed so this tests autoupgrade to llvm.clmul.
 define signext i32 @clmul32h(i32 signext %a, i32 signext %b) nounwind {
 ; RV64ZBC-ZBKC-LABEL: clmul32h:
 ; RV64ZBC-ZBKC:       # %bb.0:
@@ -48,6 +50,7 @@ define signext i32 @clmul32h(i32 signext %a, i32 signext %b) nounwind {
 
 ; FIXME: We could avoid the slli instructions by using clmul+srai since the
 ; inputs are zero extended.
+; NOTE: This intrinsic has been removed so this tests autoupgrade to llvm.clmul.
 define signext i32 @clmul32h_zext(i32 zeroext %a, i32 zeroext %b) nounwind {
 ; RV64ZBC-ZBKC-LABEL: clmul32h_zext:
 ; RV64ZBC-ZBKC:       # %bb.0:

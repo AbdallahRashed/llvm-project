@@ -11618,11 +11618,6 @@ SDValue RISCVTargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
     return DAG.getNode(RISCVISD::MOP_RR, DL, XLenVT, Op.getOperand(1),
                        Op.getOperand(2), Op.getOperand(3));
   }
-  case Intrinsic::riscv_clmulh:
-  case Intrinsic::riscv_clmulr: {
-    unsigned Opc = IntNo == Intrinsic::riscv_clmulh ? ISD::CLMULH : ISD::CLMULR;
-    return DAG.getNode(Opc, DL, XLenVT, Op.getOperand(1), Op.getOperand(2));
-  }
   case Intrinsic::experimental_get_vector_length:
     return lowerGetVectorLength(Op.getNode(), DAG, Subtarget);
   case Intrinsic::experimental_cttz_elts:
@@ -15863,36 +15858,6 @@ void RISCVTargetLowering::ReplaceNodeResults(SDNode *N,
       SDValue Res = DAG.getNode(
           RISCVISD::MOP_RR, DL, MVT::i64, NewOp0, NewOp1,
           DAG.getTargetConstant(N->getConstantOperandVal(3), DL, MVT::i64));
-      Results.push_back(DAG.getNode(ISD::TRUNCATE, DL, MVT::i32, Res));
-      return;
-    }
-    case Intrinsic::riscv_clmulh:
-    case Intrinsic::riscv_clmulr: {
-      if (!Subtarget.is64Bit() || N->getValueType(0) != MVT::i32)
-        return;
-
-      // Extend inputs to XLen, and shift by 32. This will add 64 trailing zeros
-      // to the full 128-bit clmul result of multiplying two xlen values.
-      // Perform clmulr or clmulh on the shifted values. Finally, extract the
-      // upper 32 bits.
-      //
-      // The alternative is to mask the inputs to 32 bits and use clmul, but
-      // that requires two shifts to mask each input without zext.w.
-      // FIXME: If the inputs are known zero extended or could be freely
-      // zero extended, the mask form would be better.
-      SDValue NewOp0 =
-          DAG.getNode(ISD::ANY_EXTEND, DL, MVT::i64, N->getOperand(1));
-      SDValue NewOp1 =
-          DAG.getNode(ISD::ANY_EXTEND, DL, MVT::i64, N->getOperand(2));
-      NewOp0 = DAG.getNode(ISD::SHL, DL, MVT::i64, NewOp0,
-                           DAG.getConstant(32, DL, MVT::i64));
-      NewOp1 = DAG.getNode(ISD::SHL, DL, MVT::i64, NewOp1,
-                           DAG.getConstant(32, DL, MVT::i64));
-      unsigned Opc =
-          IntNo == Intrinsic::riscv_clmulh ? ISD::CLMULH : ISD::CLMULR;
-      SDValue Res = DAG.getNode(Opc, DL, MVT::i64, NewOp0, NewOp1);
-      Res = DAG.getNode(ISD::SRL, DL, MVT::i64, Res,
-                        DAG.getConstant(32, DL, MVT::i64));
       Results.push_back(DAG.getNode(ISD::TRUNCATE, DL, MVT::i32, Res));
       return;
     }
