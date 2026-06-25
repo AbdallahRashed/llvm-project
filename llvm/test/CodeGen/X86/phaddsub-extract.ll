@@ -1681,10 +1681,9 @@ define i32 @partial_reduction_add_v8i32(<8 x i32> %x) {
 ;
 ; SSE3-FAST-LABEL: partial_reduction_add_v8i32:
 ; SSE3-FAST:       # %bb.0:
-; SSE3-FAST-NEXT:    pshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
-; SSE3-FAST-NEXT:    paddd %xmm0, %xmm1
-; SSE3-FAST-NEXT:    phaddd %xmm1, %xmm1
-; SSE3-FAST-NEXT:    movd %xmm1, %eax
+; SSE3-FAST-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-FAST-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-FAST-NEXT:    movd %xmm0, %eax
 ; SSE3-FAST-NEXT:    retq
 ;
 ; AVX-SLOW-LABEL: partial_reduction_add_v8i32:
@@ -1704,11 +1703,8 @@ define i32 @partial_reduction_add_v8i32(<8 x i32> %x) {
 ; AVX-FAST-NEXT:    vmovd %xmm0, %eax
 ; AVX-FAST-NEXT:    vzeroupper
 ; AVX-FAST-NEXT:    retq
-  %x23 = shufflevector <8 x i32> %x, <8 x i32> undef, <8 x i32> <i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x0213 = add <8 x i32> %x, %x23
-  %x13 = shufflevector <8 x i32> %x0213, <8 x i32> undef, <8 x i32> <i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x0123 = add <8 x i32> %x0213, %x13
-  %r = extractelement <8 x i32> %x0123, i32 0
+  %1 = shufflevector <8 x i32> %x, <8 x i32> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %r = tail call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %1)
   ret i32 %r
 }
 
@@ -1724,10 +1720,9 @@ define i32 @partial_reduction_add_v16i32(<16 x i32> %x) {
 ;
 ; SSE3-FAST-LABEL: partial_reduction_add_v16i32:
 ; SSE3-FAST:       # %bb.0:
-; SSE3-FAST-NEXT:    pshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
-; SSE3-FAST-NEXT:    paddd %xmm0, %xmm1
-; SSE3-FAST-NEXT:    phaddd %xmm1, %xmm1
-; SSE3-FAST-NEXT:    movd %xmm1, %eax
+; SSE3-FAST-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-FAST-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-FAST-NEXT:    movd %xmm0, %eax
 ; SSE3-FAST-NEXT:    retq
 ;
 ; AVX-SLOW-LABEL: partial_reduction_add_v16i32:
@@ -1747,11 +1742,8 @@ define i32 @partial_reduction_add_v16i32(<16 x i32> %x) {
 ; AVX-FAST-NEXT:    vmovd %xmm0, %eax
 ; AVX-FAST-NEXT:    vzeroupper
 ; AVX-FAST-NEXT:    retq
-  %x23 = shufflevector <16 x i32> %x, <16 x i32> undef, <16 x i32> <i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x0213 = add <16 x i32> %x, %x23
-  %x13 = shufflevector <16 x i32> %x0213, <16 x i32> undef, <16 x i32> <i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x0123 = add <16 x i32> %x0213, %x13
-  %r = extractelement <16 x i32> %x0123, i32 0
+  %1 = shufflevector <16 x i32> %x, <16 x i32> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %r = tail call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %1)
   ret i32 %r
 }
 
@@ -1964,13 +1956,7 @@ define i16 @hadd16_8(<8 x i16> %x223) {
 ; AVX-FAST-NEXT:    vmovd %xmm0, %eax
 ; AVX-FAST-NEXT:    # kill: def $ax killed $ax killed $eax
 ; AVX-FAST-NEXT:    retq
-  %x224 = shufflevector <8 x i16> %x223, <8 x i16> undef, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x225 = add <8 x i16> %x223, %x224
-  %x226 = shufflevector <8 x i16> %x225, <8 x i16> undef, <8 x i32> <i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x227 = add <8 x i16> %x225, %x226
-  %x228 = shufflevector <8 x i16> %x227, <8 x i16> undef, <8 x i32> <i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x229 = add <8 x i16> %x227, %x228
-  %x230 = extractelement <8 x i16> %x229, i32 0
+  %x230 = tail call i16 @llvm.vector.reduce.add.v8i16(<8 x i16> %x223)
   ret i16 %x230
 }
 
@@ -2006,11 +1992,7 @@ define i32 @hadd32_4(<4 x i32> %x225) {
 ; AVX-FAST-NEXT:    vphaddd %xmm0, %xmm0, %xmm0
 ; AVX-FAST-NEXT:    vmovd %xmm0, %eax
 ; AVX-FAST-NEXT:    retq
-  %x226 = shufflevector <4 x i32> %x225, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %x227 = add <4 x i32> %x225, %x226
-  %x228 = shufflevector <4 x i32> %x227, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %x229 = add <4 x i32> %x227, %x228
-  %x230 = extractelement <4 x i32> %x229, i32 0
+  %x230 = tail call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %x225)
   ret i32 %x230
 }
 
@@ -2026,10 +2008,9 @@ define i32 @hadd32_8(<8 x i32> %x225) {
 ;
 ; SSE3-FAST-LABEL: hadd32_8:
 ; SSE3-FAST:       # %bb.0:
-; SSE3-FAST-NEXT:    pshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
-; SSE3-FAST-NEXT:    paddd %xmm0, %xmm1
-; SSE3-FAST-NEXT:    phaddd %xmm1, %xmm1
-; SSE3-FAST-NEXT:    movd %xmm1, %eax
+; SSE3-FAST-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-FAST-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-FAST-NEXT:    movd %xmm0, %eax
 ; SSE3-FAST-NEXT:    retq
 ;
 ; AVX-SLOW-LABEL: hadd32_8:
@@ -2049,11 +2030,8 @@ define i32 @hadd32_8(<8 x i32> %x225) {
 ; AVX-FAST-NEXT:    vmovd %xmm0, %eax
 ; AVX-FAST-NEXT:    vzeroupper
 ; AVX-FAST-NEXT:    retq
-  %x226 = shufflevector <8 x i32> %x225, <8 x i32> undef, <8 x i32> <i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x227 = add <8 x i32> %x225, %x226
-  %x228 = shufflevector <8 x i32> %x227, <8 x i32> undef, <8 x i32> <i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x229 = add <8 x i32> %x227, %x228
-  %x230 = extractelement <8 x i32> %x229, i32 0
+  %1 = shufflevector <8 x i32> %x225, <8 x i32> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %x230 = tail call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %1)
   ret i32 %x230
 }
 
@@ -2069,10 +2047,9 @@ define i32 @hadd32_16(<16 x i32> %x225) {
 ;
 ; SSE3-FAST-LABEL: hadd32_16:
 ; SSE3-FAST:       # %bb.0:
-; SSE3-FAST-NEXT:    pshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
-; SSE3-FAST-NEXT:    paddd %xmm0, %xmm1
-; SSE3-FAST-NEXT:    phaddd %xmm1, %xmm1
-; SSE3-FAST-NEXT:    movd %xmm1, %eax
+; SSE3-FAST-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-FAST-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-FAST-NEXT:    movd %xmm0, %eax
 ; SSE3-FAST-NEXT:    retq
 ;
 ; AVX-SLOW-LABEL: hadd32_16:
@@ -2092,11 +2069,8 @@ define i32 @hadd32_16(<16 x i32> %x225) {
 ; AVX-FAST-NEXT:    vmovd %xmm0, %eax
 ; AVX-FAST-NEXT:    vzeroupper
 ; AVX-FAST-NEXT:    retq
-  %x226 = shufflevector <16 x i32> %x225, <16 x i32> undef, <16 x i32> <i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x227 = add <16 x i32> %x225, %x226
-  %x228 = shufflevector <16 x i32> %x227, <16 x i32> undef, <16 x i32> <i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x229 = add <16 x i32> %x227, %x228
-  %x230 = extractelement <16 x i32> %x229, i32 0
+  %1 = shufflevector <16 x i32> %x225, <16 x i32> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %x230 = tail call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %1)
   ret i32 %x230
 }
 
@@ -2118,13 +2092,7 @@ define i16 @hadd16_8_optsize(<8 x i16> %x223) optsize {
 ; AVX-NEXT:    vmovd %xmm0, %eax
 ; AVX-NEXT:    # kill: def $ax killed $ax killed $eax
 ; AVX-NEXT:    retq
-  %x224 = shufflevector <8 x i16> %x223, <8 x i16> undef, <8 x i32> <i32 4, i32 5, i32 6, i32 7, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x225 = add <8 x i16> %x223, %x224
-  %x226 = shufflevector <8 x i16> %x225, <8 x i16> undef, <8 x i32> <i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x227 = add <8 x i16> %x225, %x226
-  %x228 = shufflevector <8 x i16> %x227, <8 x i16> undef, <8 x i32> <i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x229 = add <8 x i16> %x227, %x228
-  %x230 = extractelement <8 x i16> %x229, i32 0
+  %x230 = tail call i16 @llvm.vector.reduce.add.v8i16(<8 x i16> %x223)
   ret i16 %x230
 }
 
@@ -2142,11 +2110,7 @@ define i32 @hadd32_4_optsize(<4 x i32> %x225) optsize {
 ; AVX-NEXT:    vphaddd %xmm0, %xmm0, %xmm0
 ; AVX-NEXT:    vmovd %xmm0, %eax
 ; AVX-NEXT:    retq
-  %x226 = shufflevector <4 x i32> %x225, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %x227 = add <4 x i32> %x225, %x226
-  %x228 = shufflevector <4 x i32> %x227, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %x229 = add <4 x i32> %x227, %x228
-  %x230 = extractelement <4 x i32> %x229, i32 0
+  %x230 = tail call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %x225)
   ret i32 %x230
 }
 
@@ -2164,21 +2128,16 @@ define i32 @hadd32_4_pgso(<4 x i32> %x225) !prof !14 {
 ; AVX-NEXT:    vphaddd %xmm0, %xmm0, %xmm0
 ; AVX-NEXT:    vmovd %xmm0, %eax
 ; AVX-NEXT:    retq
-  %x226 = shufflevector <4 x i32> %x225, <4 x i32> undef, <4 x i32> <i32 2, i32 3, i32 undef, i32 undef>
-  %x227 = add <4 x i32> %x225, %x226
-  %x228 = shufflevector <4 x i32> %x227, <4 x i32> undef, <4 x i32> <i32 1, i32 undef, i32 undef, i32 undef>
-  %x229 = add <4 x i32> %x227, %x228
-  %x230 = extractelement <4 x i32> %x229, i32 0
+  %x230 = tail call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %x225)
   ret i32 %x230
 }
 
 define i32 @hadd32_8_optsize(<8 x i32> %x225) optsize {
 ; SSE3-LABEL: hadd32_8_optsize:
 ; SSE3:       # %bb.0:
-; SSE3-NEXT:    pshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
-; SSE3-NEXT:    paddd %xmm0, %xmm1
-; SSE3-NEXT:    phaddd %xmm1, %xmm1
-; SSE3-NEXT:    movd %xmm1, %eax
+; SSE3-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-NEXT:    movd %xmm0, %eax
 ; SSE3-NEXT:    retq
 ;
 ; AVX-LABEL: hadd32_8_optsize:
@@ -2188,21 +2147,17 @@ define i32 @hadd32_8_optsize(<8 x i32> %x225) optsize {
 ; AVX-NEXT:    vmovd %xmm0, %eax
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
-  %x226 = shufflevector <8 x i32> %x225, <8 x i32> undef, <8 x i32> <i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x227 = add <8 x i32> %x225, %x226
-  %x228 = shufflevector <8 x i32> %x227, <8 x i32> undef, <8 x i32> <i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x229 = add <8 x i32> %x227, %x228
-  %x230 = extractelement <8 x i32> %x229, i32 0
+  %1 = shufflevector <8 x i32> %x225, <8 x i32> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %x230 = tail call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %1)
   ret i32 %x230
 }
 
 define i32 @hadd32_16_optsize(<16 x i32> %x225) optsize {
 ; SSE3-LABEL: hadd32_16_optsize:
 ; SSE3:       # %bb.0:
-; SSE3-NEXT:    pshufd {{.*#+}} xmm1 = xmm0[2,3,2,3]
-; SSE3-NEXT:    paddd %xmm0, %xmm1
-; SSE3-NEXT:    phaddd %xmm1, %xmm1
-; SSE3-NEXT:    movd %xmm1, %eax
+; SSE3-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-NEXT:    phaddd %xmm0, %xmm0
+; SSE3-NEXT:    movd %xmm0, %eax
 ; SSE3-NEXT:    retq
 ;
 ; AVX-LABEL: hadd32_16_optsize:
@@ -2212,13 +2167,13 @@ define i32 @hadd32_16_optsize(<16 x i32> %x225) optsize {
 ; AVX-NEXT:    vmovd %xmm0, %eax
 ; AVX-NEXT:    vzeroupper
 ; AVX-NEXT:    retq
-  %x226 = shufflevector <16 x i32> %x225, <16 x i32> undef, <16 x i32> <i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x227 = add <16 x i32> %x225, %x226
-  %x228 = shufflevector <16 x i32> %x227, <16 x i32> undef, <16 x i32> <i32 1, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef, i32 undef>
-  %x229 = add <16 x i32> %x227, %x228
-  %x230 = extractelement <16 x i32> %x229, i32 0
+  %1 = shufflevector <16 x i32> %x225, <16 x i32> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+  %x230 = tail call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> %1)
   ret i32 %x230
 }
+
+declare i32 @llvm.vector.reduce.add.v4i32(<4 x i32>)
+declare i16 @llvm.vector.reduce.add.v8i16(<8 x i16>)
 
 !llvm.module.flags = !{!0}
 !0 = !{i32 1, !"ProfileSummary", !1}
