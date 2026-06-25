@@ -1,0 +1,94 @@
+// RUN: cir-opt -cir-simplify -o %t.cir %s
+// RUN: FileCheck --input-file=%t.cir %s
+
+!s32i = !cir.int<s, 32>
+
+module {
+  // Test: constant condition matches an equal case
+  cir.func @fold_const_switch_equal() -> !s32i {
+    %0 = cir.const #cir.int<2> : !s32i
+    cir.switch (%0 : !s32i) {
+      cir.case(equal, [#cir.int<1> : !s32i]) {
+        %1 = cir.const #cir.int<10> : !s32i
+        cir.return %1 : !s32i
+      }
+      cir.case(equal, [#cir.int<2> : !s32i]) {
+        %2 = cir.const #cir.int<20> : !s32i
+        cir.return %2 : !s32i
+      }
+      cir.case(equal, [#cir.int<3> : !s32i]) {
+        %3 = cir.const #cir.int<30> : !s32i
+        cir.return %3 : !s32i
+      }
+      cir.yield
+    }
+    %4 = cir.const #cir.int<0> : !s32i
+    cir.return %4 : !s32i
+  }
+  // CHECK-LABEL: cir.func @fold_const_switch_equal
+  // CHECK-NEXT:    %[[RESULT:.*]] = cir.const #cir.int<20> : !s32i
+  // CHECK-NEXT:    cir.return %[[RESULT]] : !s32i
+
+  // Test: constant condition falls through to default case
+  cir.func @fold_const_switch_default() -> !s32i {
+    %0 = cir.const #cir.int<99> : !s32i
+    cir.switch (%0 : !s32i) {
+      cir.case(equal, [#cir.int<1> : !s32i]) {
+        %1 = cir.const #cir.int<10> : !s32i
+        cir.return %1 : !s32i
+      }
+      cir.case(default, []) {
+        %2 = cir.const #cir.int<42> : !s32i
+        cir.return %2 : !s32i
+      }
+      cir.yield
+    }
+    %3 = cir.const #cir.int<0> : !s32i
+    cir.return %3 : !s32i
+  }
+  // CHECK-LABEL: cir.func @fold_const_switch_default
+  // CHECK-NEXT:    %[[RESULT:.*]] = cir.const #cir.int<42> : !s32i
+  // CHECK-NEXT:    cir.return %[[RESULT]] : !s32i
+
+  // Test: constant condition matches an anyof case
+  cir.func @fold_const_switch_anyof() -> !s32i {
+    %0 = cir.const #cir.int<3> : !s32i
+    cir.switch (%0 : !s32i) {
+      cir.case(anyof, [#cir.int<1> : !s32i, #cir.int<2> : !s32i, #cir.int<3> : !s32i]) {
+        %1 = cir.const #cir.int<100> : !s32i
+        cir.return %1 : !s32i
+      }
+      cir.case(default, []) {
+        %2 = cir.const #cir.int<0> : !s32i
+        cir.return %2 : !s32i
+      }
+      cir.yield
+    }
+    %3 = cir.const #cir.int<0> : !s32i
+    cir.return %3 : !s32i
+  }
+  // CHECK-LABEL: cir.func @fold_const_switch_anyof
+  // CHECK-NEXT:    %[[RESULT:.*]] = cir.const #cir.int<100> : !s32i
+  // CHECK-NEXT:    cir.return %[[RESULT]] : !s32i
+
+  // Test: no matching case and no default - switch is eliminated
+  cir.func @fold_const_switch_no_match() -> !s32i {
+    %0 = cir.const #cir.int<99> : !s32i
+    cir.switch (%0 : !s32i) {
+      cir.case(equal, [#cir.int<1> : !s32i]) {
+        %1 = cir.const #cir.int<10> : !s32i
+        cir.return %1 : !s32i
+      }
+      cir.case(equal, [#cir.int<2> : !s32i]) {
+        %2 = cir.const #cir.int<20> : !s32i
+        cir.return %2 : !s32i
+      }
+      cir.yield
+    }
+    %3 = cir.const #cir.int<0> : !s32i
+    cir.return %3 : !s32i
+  }
+  // CHECK-LABEL: cir.func @fold_const_switch_no_match
+  // CHECK-NEXT:    %[[RESULT:.*]] = cir.const #cir.int<0> : !s32i
+  // CHECK-NEXT:    cir.return %[[RESULT]] : !s32i
+}

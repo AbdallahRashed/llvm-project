@@ -16,6 +16,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "clang/CIR/Dialect/IR/CIRDialect.h"
 #include "clang/CIR/Dialect/Passes.h"
+#include "clang/CIR/MissingFeatures.h"
 #include "llvm/ADT/SmallVector.h"
 
 using namespace mlir;
@@ -283,6 +284,144 @@ struct SimplifyVecSplat : public OpRewritePattern<VecSplatOp> {
   }
 };
 
+/// Fold a `cir.switch` operation when the condition is a compile-time constant.
+///
+/// When the condition of a switch is known at compile time, we can determine
+/// which case will be taken and eliminate all dead branches. The switch is
+/// replaced with just the body of the matching case (or the default case if
+/// no explicit case matches).
+///
+/// This optimization handles the following case kinds:
+/// - `equal`: matches when the constant equals the case value
+/// - `anyof`: matches when the constant is in the set of case values
+/// - `range`: matches when the constant is within [lower, upper]
+/// - `default`: matches when no other case matches
+///
+/// The switch must be in "simple form" (all cases directly in the switch
+/// region) for this optimization to apply.
+///
+/// Example:
+///
+/// Before:
+///   %0 = cir.const #cir.int<2> : !s32i
+///   cir.switch (%0 : !s32i) {
+///     cir.case (equal, [#cir.int<1> : !s32i]) { ... cir.yield }
+///     cir.case (equal, [#cir.int<2> : !s32i]) { do_thing() cir.break }
+///     cir.case (default) { ... cir.yield }
+///     cir.yield
+///   }
+///
+/// After:
+///   %0 = cir.const #cir.int<2> : !s32i
+///   do_thing()
+struct ConstantFoldSwitch : public OpRewritePattern<SwitchOp> {
+  using OpRewritePattern<SwitchOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(SwitchOp op,
+                                PatternRewriter &rewriter) const override {
+    // Check if the condition is a constant.
+    auto condConst = op.getCondition().getDefiningOp<cir::ConstantOp>();
+    if (!condConst)
+      return mlir::failure();
+
+    auto condAttr = mlir::dyn_cast<cir::IntAttr>(condConst.getValue());
+    if (!condAttr)
+      return mlir::failure();
+
+    // Only handle simple-form switches for now.
+    SmallVector<CaseOp, 8> cases;
+    if (!op.isSimpleForm(cases))
+      return mlir::failure();
+
+    const llvm::APInt &condValue = condAttr.getValue();
+
+    // Find the matching case.
+    CaseOp matchedCase = nullptr;
+    CaseOp defaultCase = nullptr;
+
+    for (CaseOp c : cases) {
+      switch (c.getKind()) {
+      case CaseOpKind::Equal: {
+        auto caseAttr = mlir::dyn_cast<cir::IntAttr>(c.getValue()[0]);
+        if (caseAttr && caseAttr.getValue() == condValue)
+          matchedCase = c;
+        break;
+      }
+      case CaseOpKind::Anyof: {
+        for (mlir::Attribute attr : c.getValue()) {
+          auto caseAttr = mlir::dyn_cast<cir::IntAttr>(attr);
+          if (caseAttr && caseAttr.getValue() == condValue) {
+            matchedCase = c;
+            break;
+          }
+        }
+        break;
+      }
+      case CaseOpKind::Range: {
+        auto lowerAttr = mlir::dyn_cast<cir::IntAttr>(c.getValue()[0]);
+        auto upperAttr = mlir::dyn_cast<cir::IntAttr>(c.getValue()[1]);
+        if (lowerAttr && upperAttr) {
+          const llvm::APInt &lower = lowerAttr.getValue();
+          const llvm::APInt &upper = upperAttr.getValue();
+          // Use signed comparison for range checks.
+          if (condValue.sge(lower) && condValue.sle(upper))
+            matchedCase = c;
+        }
+        break;
+      }
+      case CaseOpKind::Default:
+        defaultCase = c;
+        break;
+      }
+      if (matchedCase)
+        break;
+    }
+
+    // Use default if no explicit case matched.
+    if (!matchedCase)
+      matchedCase = defaultCase;
+
+    // If no case matched and there's no default, the switch is a no-op.
+    if (!matchedCase) {
+      rewriter.eraseOp(op);
+      return mlir::success();
+    }
+
+    // Inline the matched case body into the parent block.
+    Block *parentBlock = op->getBlock();
+    Block &caseBlock = matchedCase.getCaseRegion().front();
+
+    // If the case ends with a yield (break), remove it. If it ends with
+    // a return, keep it — and erase the now-unreachable code after the
+    // switch.
+    Operation *terminator = caseBlock.getTerminator();
+    bool isReturn = isa<cir::ReturnOp>(terminator);
+
+    if (!isReturn)
+      rewriter.eraseOp(terminator);
+
+    // Move operations from case block before the switch op.
+    rewriter.setInsertionPoint(op);
+    for (auto &caseOp : llvm::make_early_inc_range(caseBlock))
+      caseOp.moveBefore(parentBlock, op->getIterator());
+
+    if (isReturn) {
+      // The inlined return makes the switch and everything after it
+      // unreachable. Erase from the switch to the end of the block.
+      SmallVector<Operation *> toErase;
+      for (auto it = op->getIterator(), end = parentBlock->end(); it != end;
+           ++it)
+        toErase.push_back(&*it);
+      for (auto *deadOp : llvm::reverse(toErase))
+        rewriter.eraseOp(deadOp);
+    } else {
+      rewriter.eraseOp(op);
+    }
+
+    return mlir::success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // CIRSimplifyPass
 //===----------------------------------------------------------------------===//
@@ -299,7 +438,8 @@ void populateMergeCleanupPatterns(RewritePatternSet &patterns) {
     SimplifyTernary,
     SimplifySelect,
     SimplifySwitch,
-    SimplifyVecSplat
+    SimplifyVecSplat,
+    ConstantFoldSwitch
   >(patterns.getContext());
   // clang-format on
 }
